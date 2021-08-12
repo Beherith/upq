@@ -1,10 +1,19 @@
 #!/usr/bin/python3
 
-import cgi, os, cgitb, html
+import cgi, os, cgitb, html, sys
 
 print("Content-type: text/html\n")
 cgitb.enable()
 
+if os.environ.get('UPQ_DIR'):
+	sys.path.insert(0, os.environ.get('UPQ_DIR'))
+
+upq_creds = {}
+credentials = os.environ.get('UPQ_CREDENTIALS')
+if credentials:
+	for user_pass in credentials.split(';'):
+		user, passwd = user_pass.split(',')
+		upq_creds[user] = passwd
 
 def ShowForm(tplvars):
 	with open("form.html", "r") as f:
@@ -28,6 +37,12 @@ def save_uploaded_file(fileitem, upload_dir):
 			fout.write(chunk)
 	return absfile
 
+def CheckAuthInternal(username, password):
+	for user, passwd in upq_creds.items():
+		if user == username and passwd == passwd:
+			return True 
+	return False
+
 def CheckAuth(username, password):
 	if not username or not password:
 		return False
@@ -47,7 +62,15 @@ def SaveUploadedFile(form):
 		return "Missing formdata"
 	username = form.getvalue("username")
 	password = form.getvalue("password")
-	if not CheckAuth(username, password):
+
+	auth_pass = False
+
+	if upq_creds:
+		auth_pass = CheckAuthInternal(username, password)
+	else:
+		auth_pass = CheckAuth(username, password)
+
+	if not auth_pass:
 		return "Invalid Username or Password"
 	fileitem = form["filename"]
 	if not fileitem.file:
@@ -56,7 +79,7 @@ def SaveUploadedFile(form):
 	if not filename:
 		return "Couldn't store file"
 
-	upqdir = "/home/upq/upq"
+	upqdir = os.environ.get('UPQ_JOBS') or "/home/upq/upq"
 	assert(os.path.isdir(upqdir))
 	oldcwd = os.getcwd()
 	os.chdir(upqdir)

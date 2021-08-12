@@ -2,7 +2,7 @@
 
 $con = mysqli_connect($config['db_host'], $config['db_user'], $config['db_pass']);
 if (!$con)
-	die("mysql error: ".mysqli_error($con));
+	die("mysql error: ".mysqli_connect_errno() . ": " . mysqli_connect_error());
 
 mysqli_select_db($con, $config['db_db']);
 

@@ -64,15 +64,20 @@ class Extract_metadata(UpqJob):
 		except:
 			pass
 
+	def sanitizemapname(self, string):
+		string=string.replace("_"," ")
+		return string.lower()
+
 	def getMapIdx(self, usync, filename):
-		assert(isinstance(filename, str))
 		mapcount = usync.GetMapCount()
 		for i in range(0, mapcount):
 			usync.GetMapArchiveCount(usync.GetMapName(i)) # initialization for GetMapArchiveName()
-			mapfilename = os.path.basename(usync.GetMapArchiveName(0).decode())
-			if filename==mapfilename:
+			mapname = os.path.basename(usync.GetMapArchiveName(0).decode())
+			mapfilename = os.path.splitext(filename)[0]
+			if self.sanitizemapname(mapname)==self.sanitizemapname(mapfilename):
 				return i
 		return -1
+
 	def getGameIdx(self, usync, filename):
 		assert(isinstance(filename, str))
 		gamecount = usync.GetPrimaryModCount()
@@ -81,6 +86,7 @@ class Extract_metadata(UpqJob):
 			if filename == gamename:
 				return i
 		return -1
+
 	def escape(self, string):
 		assert(isinstance(string, str))
 		string=string.replace("'","''")
@@ -173,6 +179,7 @@ class Extract_metadata(UpqJob):
 		os.environ["SPRING_DATADIR"]=tmpdir
 		os.environ["HOME"]=tmpdir
 		os.environ["SPRING_LOG_SECTIONS"]="unitsync,ArchiveScanner,VFS"
+		shutil.copytree('/spring/engine/104.0.1-1952-gd9c289f bar/base', tmpdir + '/base')
 		usync = unitsync.Unitsync(libunitsync)
 		usync.Init(True,1)
 		version = usync.GetSpringVersion().decode()
@@ -237,7 +244,7 @@ class Extract_metadata(UpqJob):
 			archivepath = usync.GetArchivePath(filename.encode()).decode()+filename
 			springname = usync.GetMapName(idx).decode()
 			data=self.getMapData(usync, filename, idx, archiveh, springname)
-			data['mapimages']=self.dumpmap(usync, springname, metadatapath, filename,idx)
+			data['mapimages']=self.dumpmap(usync, springname, metadatapath, filename,data)
 			data['path'] = self.jobcfg['maps-path']
 		else: # file is a game
 			idx=self.getGameIdx(usync, filename)
@@ -304,7 +311,7 @@ class Extract_metadata(UpqJob):
 		del usync
 		#print(self.jobcfg)
 		if not "keeptemp" in self.jobcfg or self.jobcfg["keeptemp"] != "yes":
-			assert(tmpdir.startswith("/home/upq/upq/tmp/"))
+			assert("/tmp" in tmpdir)
 			shutil.rmtree(tmpdir)
 		return res
 
@@ -432,9 +439,9 @@ class Extract_metadata(UpqJob):
 		self.logger.error("Error creating image %s" % (usync.usync.GetNextError()))
 		raise Exception("Error creating image")
 
-	def dumpmap(self, usync, springname, outpath, filename, idx):
-		mapwidth=float(usync.GetMapWidth(idx))
-		mapheight=float(usync.GetMapHeight(idx))
+	def dumpmap(self, usync, springname, outpath, filename, data):
+		mapwidth=float(data['width'])
+		mapheight=float(data['height'])
 		if mapwidth>mapheight:
 			scaledsize=(1024, int(((mapheight/mapwidth) * 1024)))
 		else:
@@ -536,34 +543,28 @@ class Extract_metadata(UpqJob):
 		res['Units']=self.getUnits(usync, archivename)
 		return res
 
+	def getInfoValue(self, usync, idx):
+		kind = usync.GetInfoType(idx).decode()
+		if kind == 'string':
+			return usync.GetInfoValueString(idx).decode()
+		elif kind == 'integer':
+				return usync.GetInfoValueInteger(idx)
+		elif kind == 'float':
+				return usync.GetInfoValueFloat(idx)
+		elif kind == 'bool':
+			return usync.GetInfoValueBool(idx)
+
 	def getMapData(self, usync, filename, idx, archiveh, springname):
 		res={}
 		res['Type'] = "map"
 		mapname=usync.GetMapName(idx).decode()
 		res['Name'] = mapname
-		author = usync.GetMapAuthor(idx)
-		res['Author'] = author.decode() if author else ""
-		res['Description'] = self.decodeString(usync.GetMapDescription(idx))
-		res['Gravity'] = usync.GetMapGravity(idx)
-		res['MaxWind'] = usync.GetMapWindMax(idx)
-		res['MinWind'] = usync.GetMapWindMin(idx)
-		res['TidalStrength'] = usync.GetMapTidalStrength(idx)
-
-		res['Height'] = usync.GetMapHeight(idx) / 512
-		res['Width'] = usync.GetMapWidth(idx) / 512
-
-		res['Gravity'] = usync.GetMapGravity(idx)
-		res['MapFileName'] = usync.GetMapFileName(idx).decode()
-		res['MapMinHeight'] = usync.GetMapMinHeight(mapname)
-		res['MapMaxHeight'] = usync.GetMapMaxHeight(mapname)
-
-		res['Resources'] = self.getMapResources(usync, idx,filename)
-		res['Units'] = self.getUnits(usync, filename)
-
-		res['StartPos']=self.getMapPositions(usync,idx,filename.encode("ascii"))
-		res['Depends']=self.getDepends(usync, archiveh, "mapinfo.lua")
-		version="" #TODO: add support
-		res['Version']=version
+		res['Version'] = ''
+		res['Depends'] = []
+		for i in range(0, usync.GetMapInfoCount(idx)):
+			key = usync.GetInfoKey(i).decode()
+			value = self.getInfoValue(usync, i)
+			res[key] = value
 		return res
 
 	def getPathByStatus(self, status):

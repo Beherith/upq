@@ -21,7 +21,7 @@ class UpqConfig():
 	db	 = {}
 	config_log = "Log replay from config parsing:\n"
 	config = ""
-	configfile = "upq.cfg"
+	configfile = os.path.dirname(os.path.realpath(__file__)) + "/upq.cfg"
 	logfile = ""
 
 	def setstr(self,obj, section, value, default):
@@ -65,13 +65,13 @@ class UpqConfig():
 
 	def readConfig(self):
 		if not os.access(self.configfile, os.R_OK):
-			print >> sys.stderr, "Cannot read config file \"%s\"."%self.configfile
+			print("Cannot read config file \"%s\"."%self.configfile, file=sys.stderr)
 			sys.exit(1)
 		try:
 			self.config = ConfigParser.RawConfigParser()
 			self.config.read(self.configfile)
 		except Exception as e:
-			print >> sys.stderr, "Couldn't parse %s %s" % (self.configfile, e)
+			print("Couldn't parse %s %s" % (self.configfile, e), file=sys.stderr)
 			sys.exit(1)
 
 		self.paths = {}
