@@ -134,6 +134,7 @@ function sendRequest(sfQuery,query) {
 		timeout: REQUEST_TIMEOUT_MS,
 		crossDomain: true,
 		jsonpCallback: "processData",
+    headers: {'Access-Control-Allow-Origin':'*'},
 		error: function (XHR, textStatus, errorThrown) {
 			if (textStatus === "timeout") {
 				// something went wrong, show message
