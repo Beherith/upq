@@ -17,6 +17,8 @@ class UpqConfig():
 	jobs   = {}
 	db	 = {}
 	config = ""
+	configfile = os.path.dirname(os.path.realpath(__file__)) + "/upq.cfg"
+	logfile = ""
 
 	def setstr(self,obj, section, value, default):
 		try:
